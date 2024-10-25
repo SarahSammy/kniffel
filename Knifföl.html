@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kniffel für Zwei Spieler</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKgAAAEsCAMAAABgwwj8AAAAA1BMVEWoz7D3EkkPAAAASElEQVR4nO3BMQEAAADCoPVPbQwfoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+BsYMAAFjd3WkAAAAAElFTkSuQmCC'); /* Beispiel Smiley-Bild */
+      background-size: cover;
+    }
+    .dice { font-size: 2rem; margin: 0.5rem; display: inline-block; width: 50px; height: 50px; border: 2px solid black; cursor: pointer; }
+    .selected { background-color: yellow; }
+    .buttons { margin-top: 1rem; }
+    .score-board { display: flex; justify-content: center; flex-wrap: wrap; }
+    .player-table { border: 1px solid black; padding: 10px; margin: 10px; width: 200px; background-color: rgba(255, 255, 255, 0.9); }
+    .player-table h3 { margin: 0; padding: 5px; }
+    .score-board div { margin: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Kniffel für Zwei Spieler</h1>
+
+  <!-- Würfelanzeige -->
+  <div id="gameContainer">
+    <div id="diceContainer">
+      <span class="dice" id="dice1" onclick="toggleDice(0)">1</span>
+      <span class="dice" id="dice2" onclick="toggleDice(1)">1</span>
+      <span class="dice" id="dice3" onclick="toggleDice(2)">1</span>
+      <span class="dice" id="dice4" onclick="toggleDice(3)">1</span>
+      <span class="dice" id="dice5" onclick="toggleDice(4)">1</span>
+    </div>
+    
+    <div class="buttons">
+      <button onclick="rollDice()" id="rollButton">Würfeln</button>
+      <button onclick="endTurn()">Zug Beenden</button>
+    </div>
+    
+    <div id="message">Spieler 1 ist am Zug</div>
+    
+    <!-- Tabelle für jeden Spieler -->
+    <div class="score-board" id="scoreBoard"></div>
+  </div>
+  
+  <!-- Audio-Elemente für den Würfelwurf-Ton -->
+  <audio id="diceRollSound" src="http://cd.textfiles.com/itcontinues/WIN/YTB22/MANYDICE.WAV"></audio> <!-- Beispiel Würfelwurf-Sound -->
+  <audio id="applause" src="http://hsvensson.com/x/LJUDFILER/LJUDEFFEKTER/APPLAD.WAV"></audio> <!-- Beispielton -->
+
+  <script>
+    const MAX_ROLLS = 3;
+    const players = 2; // Fest auf 2 Spieler gesetzt
+    let currentPlayer = 1;
+    let rollCount = 0;
+    let diceValues = [1, 1, 1, 1, 1];
+    let diceSelected = [false, false, false, false, false];
+    let playerScores = Array.from({ length: players }, () => Array(20).fill(null)); // 15 + 5 für die Wurf-Felder
+    let turnScores = [0, 0, 0, 0, 0]; // Für Einwurf, Zweiwurf, Dreiwurf, Vierwurf, Fünfwurf
+
+    // Das Spiel wird sofort gestartet
+    initializeGame();
+
+    function initializeGame() {
+      const scoreBoard = document.getElementById("scoreBoard");
+      scoreBoard.innerHTML = "";
+      for (let i = 1; i <= players; i++) {
+        const table = document.createElement("div");
+        table.classList.add("player-table");
+        table.innerHTML = `<h3>Spieler ${i}</h3>`;
+        ["1er", "2er", "3er", "4er", "5er", "6er", "Ein Paar", "Zwei Paar", "3er Pasch", "4er Pasch", "Full House", "kleine Straße", "große Straße", "Kniffel", "Chance", 
+        "Einwurf", "Zweiwurf", "Dreiwurf", "Vierwurf", "Fünfwurf"].forEach((field, index) => {
+          const row = document.createElement("div");
+          row.innerHTML = `${field}: <span onclick="selectField(${i}, ${index})" id="score_${i}_${index}">-</span>`;
+          table.appendChild(row);
+        });
+        scoreBoard.appendChild(table);
+      }
+    }
+
+    function toggleDice(index) {
+      diceSelected[index] = !diceSelected[index];
+      document.getElementById(`dice${index + 1}`).classList.toggle("selected", diceSelected[index]);
+    }
+
+    function rollDice() {
+      if (rollCount >= MAX_ROLLS) {
+        alert("Maximale Wurfanzahl erreicht. Wähle ein Feld in der Tabelle aus.");
+        return;
+      }
+
+      // Spielen des Würfelwurf-Sounds
+      document.getElementById("diceRollSound").play();
+
+      for (let i = 0; i < 5; i++) {
+        if (!diceSelected[i]) diceValues[i] = Math.floor(Math.random() * 6) + 1;
+        document.getElementById(`dice${i + 1}`).textContent = diceValues[i];
+      }
+      rollCount++;
+      document.getElementById("message").textContent = `Spieler ${currentPlayer} hat ${rollCount} mal geworfen.`;
+
+      // Deaktivieren der Würfeln-Schaltfläche nach dem dritten Wurf
+      if (rollCount === MAX_ROLLS) {
+        document.getElementById("rollButton").disabled = true;
+      }
+    }
+
+    function calculateScore(fieldIndex) {
+      const counts = Array(6).fill(0);
+      diceValues.forEach(value => counts[value - 1]++);
+      
+      switch (fieldIndex) {
+        case 0: return counts[0];
+        case 1: return counts[1] * 2;
+        case 2: return counts[2] * 3;
+        case 3: return counts[3] * 4;
+        case 4: return counts[4] * 5;
+        case 5: return counts[5] * 6;
+        case 6: return Math.max(...counts.map((count, i) => count >= 2 ? (i + 1) * 2 : 0));
+        case 7: return counts.filter(count => count >= 2).length >= 2 ? 20 : 0;
+        case 8: return counts.some(count => count >= 3) ? diceValues.reduce((a, b) => a + b) : 0;
+        case 9: return counts.some(count => count >= 4) ? diceValues.reduce((a, b) => a + b) : 0;
+        case 10: return counts.includes(3) && counts.includes(2) ? 25 : 0;
+        case 11: return counts.slice(0, 4).every(c => c) || counts.slice(1, 5).every(c => c) || counts.slice(2, 6).every(c => c) ? 30 : 0;
+        case 12: return counts.slice(0, 5).every(c => c) || counts.slice(1, 6).every(c => c) ? 40 : 0;
+        case 13: return counts.includes(5) ? 50 : 0;
+        case 14: return diceValues.reduce((a, b) => a + b); // Chance
+        case 15: return turnScores[0]; // Einwurf
+        case 16: return turnScores[1]; // Zweiwurf
+        case 17: return turnScores[2]; // Dreiwurf
+        case 18: return turnScores[3]; // Vierwurf
+        case 19: return turnScores[4]; // Fünfwurf
+      }
+    }
+
+    function selectField(player, field) {
+      if (playerScores[player - 1][field] === null) {
+        playerScores[player - 1][field] = calculateScore(field);
+        document.getElementById(`score_${player}_${field}`).textContent = playerScores[player - 1][field];
+        rollCount = 0; // Zurücksetzen der Wurfanzahl für den nächsten Spieler
+        currentPlayer = currentPlayer === 1 ? 2 : 1; // Wechseln zum nächsten Spieler
+        diceValues = [1, 1, 1, 1, 1]; // Zurücksetzen der Würfelwerte
+        diceSelected = [false, false, false, false, false]; // Zurücksetzen der Auswahl der Würfel
+        document.getElementById("rollButton").disabled = false; // Aktivieren der Würfeln-Schaltfläche
+        document.getElementById("message").textContent = `Spieler ${currentPlayer} ist am Zug`;
+      } else {
+        alert("Dieses Feld wurde bereits ausgefüllt.");
+      }
+    }
+
+    function endTurn() {
+      // Aktueller Zug wird beendet und der Spieler wird gewechselt
+      if (rollCount === 0) {
+        alert("Du musst mindestens einmal würfeln, bevor du den Zug beendest.");
+      } else {
+        currentPlayer = currentPlayer === 1 ? 2 : 1; // Wechseln zum nächsten Spieler
+        rollCount = 0; // Zurücksetzen der Wurfanzahl für den nächsten Spieler
+        diceValues = [1, 1, 1, 1, 1]; // Zurücksetzen der Würfelwerte
+        diceSelected = [false, false, false, false, false]; // Zurücksetzen der Auswahl der Würfel
+        document.getElementById("rollButton").disabled = false; // Aktivieren der Würfeln-Schaltfläche
+        document.getElementById("message").textContent = `Spieler ${currentPlayer} ist am Zug`;
+      }
+    }
+  </script>
+</body>
+</html>
